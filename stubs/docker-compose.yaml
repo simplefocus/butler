@@ -18,13 +18,23 @@ services:
       - php
     volumes:
       - ./templates/nginx:/etc/nginx/templates
-    environment: 
-      <<: *commonEnvironment
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=root
+      - WORDPRESS_DB_PASSWORD="" 
+      - VALET_HOME_PATH=${VALET_HOME_PATH}
+      - VALET_STATIC_PREFIX=${VALET_STATIC_PREFIX}
+      - VALET_SERVER_PATH=${VALET_SERVER_PATH}
+      - PATH=/valet/master:$PATH
     depends_on: 
       - php
+      - db
     networks:
       vpc:
         ipv4_address: ${BUTLER_WEBSERVER_IP:-10.172.0.10}
+    links:
+      - db
+    restart: unless-stopped
 
   php:
     image: jtreminio/php:${BUTLER_PHP_VERSION:-8.0}
@@ -41,7 +51,7 @@ services:
       - composer:/./composer
       - ./valet:${VALET_PATH}
       - ./.valet-home:${VALET_HOME_PATH}
-      - ${DEFAULT_WWW_PATH}:${WORK_DIR_PATH}
+      - ${DEFAULT_WWW_PATH}:${WORK_DIR_PATH}:rw
     networks:
       vpc:
         ipv4_address: ${BUTLER_PHP_IP:-10.172.0.11}
@@ -75,6 +85,26 @@ services:
     networks:
       vpc:
         ipv4_address: ${BUTLER_DNS_INTERNAL_IP:-10.172.0.101}
+  db:
+    platform: linux/x86_64
+    image: mysql:5.7
+    container_name: db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    volumes:
+      - ${MYSQL_DATA_PATH}:/var/lib/mysql
+    environment:
+        MYSQL_ROOT_PASSWORD: ""
+        MYSQL_USER: "root"
+        MYSQL_PASSWORD: ""
+        MYSQL_ALLOW_EMPTY_PASSWORD: "yes"  
+    ports:
+      - "3306:3306"
+    expose:
+      - 3306
+    networks:
+      vpc:
+        ipv4_address: ${BUTLER_MYSQL_IP:-10.172.0.12}
 
 volumes:
   composer:
